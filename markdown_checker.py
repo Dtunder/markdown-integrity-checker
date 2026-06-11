@@ -16,6 +16,7 @@ RE_NON_WORD_CHARS = re.compile(r'[^\w\s-]')
 RE_DASH_SPACES = re.compile(r'[-\s]+')
 RE_URL_SCHEME = re.compile(r'^[a-zA-Z][a-zA-Z0-9+.-]*:')
 
+
 class MarkdownChecker:
     """
     A tool to scan a directory for markdown files and verify internal links.
@@ -32,7 +33,7 @@ class MarkdownChecker:
         file_links_cache (Dict[str, List[Tuple[str, str]]]): A cache mapping file paths to lists of extracted links.
     """
 
-    def __init__(self, root_dir: str):
+    def __init__(self, root_dir: str) -> None:
         """
         Initializes the MarkdownChecker with the specified root directory.
 
@@ -71,9 +72,9 @@ class MarkdownChecker:
         logger.info(f"Scanning directory {self.root_dir} for markdown files.")
         self.md_files = self._find_md_files(self.root_dir)
         logger.info(f"Found {len(self.md_files)} markdown file(s).")
-        
+
         broken_links = []
-        
+
         # Process files only when needed, but typically we iterate through all to check their links.
         # However, anchors for other files are populated lazily inside _verify_link.
         for file in self.md_files:
@@ -90,7 +91,7 @@ class MarkdownChecker:
                         'url': url,
                         'reason': reason
                     })
-                    
+
         return broken_links
 
     def _find_md_files(self, directory: str) -> List[str]:
@@ -155,10 +156,10 @@ class MarkdownChecker:
         """
         if filepath in self.file_anchors_cache:
             return  # Already parsed
-            
+
         if not isinstance(filepath, str):
             raise TypeError(f"filepath must be a string, got {type(filepath).__name__}")
-            
+
         anchors = set()
         links = []
         try:
@@ -167,19 +168,19 @@ class MarkdownChecker:
                 # Remove code blocks and inline code to prevent false positives
                 content_no_code = RE_CODE_BLOCK.sub('', content)
                 content_no_code = RE_INLINE_CODE.sub('', content_no_code)
-                
+
                 # Extract headers for anchors
                 headers = RE_HEADER.findall(content_no_code)
                 for header in headers:
                     anchors.add(self._generate_anchor(header))
-                    
+
                 # Extract explicit HTML anchors
                 html_anchors = RE_HTML_ANCHOR.findall(content_no_code)
                 anchors.update(html_anchors)
-                
+
                 # Extract markdown links
                 raw_links = RE_LINK.findall(content_no_code)
-                
+
                 for text, url_title in raw_links:
                     # Handle optional title in the url like `file.md "Title"`
                     url_parts = url_title.strip().split(maxsplit=1)
@@ -189,17 +190,17 @@ class MarkdownChecker:
                     # Clean < > if present
                     if url.startswith('<') and url.endswith('>'):
                         url = url[1:-1]
-                        
+
                     if not url or RE_URL_SCHEME.match(url):
                         continue
-                        
+
                     links.append((text, url))
         except (OSError, UnicodeDecodeError) as e:
             logger.warning(f"Could not parse file {filepath}: {e}", exc_info=True)
             # We want to use the same print warning format to preserve backward compatibility
             print(f"Warning: Could not read anchors from {filepath}: {e}", file=sys.stderr)
             print(f"Warning: Could not read links from {filepath}: {e}", file=sys.stderr)
-            
+
         logger.debug(f"Parsed {filepath}: found {len(anchors)} anchors and {len(links)} internal links.")
         self.file_anchors_cache[filepath] = anchors
         self.file_links_cache[filepath] = links
@@ -261,12 +262,12 @@ class MarkdownChecker:
             raise TypeError(f"source_file must be a string, got {type(source_file).__name__}")
         if not isinstance(url, str):
             raise TypeError(f"url must be a string, got {type(url).__name__}")
-            
+
         target_path = url
         anchor = None
         if '#' in url:
             target_path, anchor = url.split('#', 1)
-            
+
         if not target_path:
             abs_target_path = source_file
         else:
@@ -275,19 +276,19 @@ class MarkdownChecker:
             else:
                 source_dir = os.path.dirname(source_file)
                 abs_target_path = os.path.abspath(os.path.join(source_dir, target_path))
-                
+
         if not os.path.exists(abs_target_path):
             logger.debug(f"Verification failed: File not found ({abs_target_path})")
             return False, f"File not found: {target_path}"
-            
+
         if not os.path.isfile(abs_target_path):
             logger.debug(f"Verification failed: Target is not a file ({abs_target_path})")
             return False, f"Target is not a file: {target_path}"
-            
+
         if anchor and abs_target_path.lower().endswith('.md'):
             self._parse_file(abs_target_path)
             if anchor not in self.file_anchors_cache.get(abs_target_path, set()):
                 logger.debug(f"Verification failed: Anchor not found ({anchor} in {abs_target_path})")
                 return False, f"Anchor not found: #{anchor}"
-                
+
         return True, ""

@@ -4,7 +4,8 @@ import os
 import logging
 from markdown_checker import MarkdownChecker
 
-def setup_logging():
+
+def setup_logging() -> None:
     """
     Configures structured logging for the application.
 
@@ -15,14 +16,15 @@ def setup_logging():
     """
     log_level_str = os.environ.get("LOG_LEVEL", "INFO").upper()
     log_level = getattr(logging, log_level_str, logging.INFO)
-    
+
     logging.basicConfig(
         level=log_level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[logging.StreamHandler(sys.stdout)]
     )
 
-def main():
+
+def main() -> None:
     """
     Entry point for the markdown-integrity-checker CLI tool.
 
@@ -36,33 +38,34 @@ def main():
        appropriate status code (0 if all links are valid, 1 otherwise).
 
     Raises:
-        SystemExit: Exits with code 1 if directory validation fails, 
+        SystemExit: Exits with code 1 if directory validation fails,
                     if a configuration/runtime error occurs, or if broken links are found.
                     Exits with code 0 if the scan succeeds and no broken links are found.
     """
     setup_logging()
     logger = logging.getLogger(__name__)
-    
-    parser = argparse.ArgumentParser(description="Markdown Integrity Checker: Scans for broken internal links in markdown files.")
+
+    parser = argparse.ArgumentParser(
+        description="Markdown Integrity Checker: Scans for broken internal links in markdown files.")
     parser.add_argument('directory', nargs='?', default='.', help="Directory to scan (default: current directory)")
-    
+
     args = parser.parse_args()
-    
+
     scan_dir = args.directory
     if not isinstance(scan_dir, str):
         logger.error("Invalid directory path type provided.")
-        print(f"Error: Invalid directory path type.", file=sys.stderr)
+        print("Error: Invalid directory path type.", file=sys.stderr)
         sys.exit(1)
-        
+
     if not os.path.isdir(scan_dir):
         logger.error(f"Directory '{scan_dir}' not found or is not a directory.")
         print(f"Error: Directory '{scan_dir}' not found or is not a directory.", file=sys.stderr)
         sys.exit(1)
-        
+
     abs_scan_dir = os.path.abspath(scan_dir)
     logger.info(f"Starting scan for directory: {abs_scan_dir}")
     print(f"Scanning directory: {abs_scan_dir}")
-    
+
     try:
         logger.debug("Initializing MarkdownChecker.")
         checker = MarkdownChecker(scan_dir)
@@ -77,12 +80,12 @@ def main():
         logger.error(f"Unexpected Runtime Error during scan: {e}", exc_info=True)
         print(f"Unexpected Runtime Error during scan: {e}", file=sys.stderr)
         sys.exit(1)
-    
+
     if not broken_links:
         logger.info("No broken internal links found.")
         print("\nAll internal links are valid. Great job!")
         sys.exit(0)
-        
+
     logger.warning(f"Found {len(broken_links)} broken link(s).")
     print(f"\nFound {len(broken_links)} broken link(s):\n")
     for link in broken_links:
@@ -92,8 +95,9 @@ def main():
         print(f"  URL: {link['url']}")
         print(f"  Reason: {link['reason']}")
         print("-" * 40)
-        
+
     sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
