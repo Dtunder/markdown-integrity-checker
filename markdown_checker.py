@@ -1,7 +1,10 @@
 import os
 import re
 import sys
+import logging
 from typing import List, Tuple, Dict, Set
+
+logger = logging.getLogger(__name__)
 
 # Compiled regular expressions for optimization
 RE_CODE_BLOCK = re.compile(r'```.*?```', flags=re.DOTALL)
@@ -22,6 +25,7 @@ class MarkdownChecker:
         if not os.path.isdir(root_dir):
             raise ValueError(f"Directory not found or not a directory: {root_dir}")
         self.root_dir = os.path.abspath(root_dir)
+        logger.debug(f"MarkdownChecker initialized with root directory: {self.root_dir}")
         self.md_files: List[str] = []
         self.file_anchors_cache: Dict[str, Set[str]] = {}
         self.file_links_cache: Dict[str, List[Tuple[str, str]]] = {}
@@ -31,17 +35,22 @@ class MarkdownChecker:
         Scans the root directory for markdown files and verifies internal links.
         Returns a list of dictionaries detailing broken links.
         """
+        logger.info(f"Scanning directory {self.root_dir} for markdown files.")
         self.md_files = self._find_md_files(self.root_dir)
+        logger.info(f"Found {len(self.md_files)} markdown file(s).")
+        
         broken_links = []
         
         # Process files only when needed, but typically we iterate through all to check their links.
         # However, anchors for other files are populated lazily inside _verify_link.
         for file in self.md_files:
+            logger.debug(f"Scanning file for links: {file}")
             self._parse_file(file)
             links = self.file_links_cache.get(file, [])
             for link_text, url in links:
                 is_valid, reason = self._verify_link(file, url)
                 if not is_valid:
+                    logger.debug(f"Broken link found in {file}: '{link_text}' -> {url} ({reason})")
                     broken_links.append({
                         'source': file,
                         'text': link_text,
@@ -115,10 +124,12 @@ class MarkdownChecker:
                         
                     links.append((text, url))
         except (OSError, UnicodeDecodeError) as e:
+            logger.warning(f"Could not parse file {filepath}: {e}", exc_info=True)
             # We want to use the same print warning format to preserve backward compatibility
             print(f"Warning: Could not read anchors from {filepath}: {e}", file=sys.stderr)
             print(f"Warning: Could not read links from {filepath}: {e}", file=sys.stderr)
             
+        logger.debug(f"Parsed {filepath}: found {len(anchors)} anchors and {len(links)} internal links.")
         self.file_anchors_cache[filepath] = anchors
         self.file_links_cache[filepath] = links
 
@@ -154,14 +165,17 @@ class MarkdownChecker:
                 abs_target_path = os.path.abspath(os.path.join(source_dir, target_path))
                 
         if not os.path.exists(abs_target_path):
+            logger.debug(f"Verification failed: File not found ({abs_target_path})")
             return False, f"File not found: {target_path}"
             
         if not os.path.isfile(abs_target_path):
+            logger.debug(f"Verification failed: Target is not a file ({abs_target_path})")
             return False, f"Target is not a file: {target_path}"
             
         if anchor and abs_target_path.lower().endswith('.md'):
             self._parse_file(abs_target_path)
             if anchor not in self.file_anchors_cache.get(abs_target_path, set()):
+                logger.debug(f"Verification failed: Anchor not found ({anchor} in {abs_target_path})")
                 return False, f"Anchor not found: #{anchor}"
                 
         return True, ""

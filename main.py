@@ -1,13 +1,28 @@
 import argparse
 import sys
 import os
+import logging
 from markdown_checker import MarkdownChecker
+
+def setup_logging():
+    """Configures structured logging for the application."""
+    log_level_str = os.environ.get("LOG_LEVEL", "INFO").upper()
+    log_level = getattr(logging, log_level_str, logging.INFO)
+    
+    logging.basicConfig(
+        level=log_level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[logging.StreamHandler(sys.stdout)]
+    )
 
 def main():
     """
     Entry point for the markdown-integrity-checker CLI tool.
     Parses arguments, initializes the MarkdownChecker, and outputs broken links if any.
     """
+    setup_logging()
+    logger = logging.getLogger(__name__)
+    
     parser = argparse.ArgumentParser(description="Markdown Integrity Checker: Scans for broken internal links in markdown files.")
     parser.add_argument('directory', nargs='?', default='.', help="Directory to scan (default: current directory)")
     
@@ -15,31 +30,43 @@ def main():
     
     scan_dir = args.directory
     if not isinstance(scan_dir, str):
+        logger.error("Invalid directory path type provided.")
         print(f"Error: Invalid directory path type.", file=sys.stderr)
         sys.exit(1)
         
     if not os.path.isdir(scan_dir):
+        logger.error(f"Directory '{scan_dir}' not found or is not a directory.")
         print(f"Error: Directory '{scan_dir}' not found or is not a directory.", file=sys.stderr)
         sys.exit(1)
         
-    print(f"Scanning directory: {os.path.abspath(scan_dir)}")
+    abs_scan_dir = os.path.abspath(scan_dir)
+    logger.info(f"Starting scan for directory: {abs_scan_dir}")
+    print(f"Scanning directory: {abs_scan_dir}")
     
     try:
+        logger.debug("Initializing MarkdownChecker.")
         checker = MarkdownChecker(scan_dir)
+        logger.info("Beginning markdown link scan.")
         broken_links = checker.scan()
+        logger.info("Scan completed successfully.")
     except (TypeError, ValueError) as e:
+        logger.error(f"Configuration Error: {e}", exc_info=True)
         print(f"Configuration Error: {e}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
+        logger.error(f"Unexpected Runtime Error during scan: {e}", exc_info=True)
         print(f"Unexpected Runtime Error during scan: {e}", file=sys.stderr)
         sys.exit(1)
     
     if not broken_links:
+        logger.info("No broken internal links found.")
         print("\nAll internal links are valid. Great job!")
         sys.exit(0)
         
+    logger.warning(f"Found {len(broken_links)} broken link(s).")
     print(f"\nFound {len(broken_links)} broken link(s):\n")
     for link in broken_links:
+        logger.debug(f"Broken link in {link['source']}: '{link['text']}' -> {link['url']} ({link['reason']})")
         print(f"File: {link['source']}")
         print(f"  Link Text: '{link['text']}'")
         print(f"  URL: {link['url']}")
