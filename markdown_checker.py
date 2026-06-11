@@ -1,9 +1,14 @@
 import os
 import re
+import sys
 from typing import List, Tuple, Dict, Set
 
 class MarkdownChecker:
     def __init__(self, root_dir: str):
+        if not isinstance(root_dir, str):
+            raise TypeError(f"root_dir must be a string, got {type(root_dir).__name__}")
+        if not os.path.isdir(root_dir):
+            raise ValueError(f"Directory not found or not a directory: {root_dir}")
         self.root_dir = os.path.abspath(root_dir)
         self.md_files = []
         self.file_anchors_cache: Dict[str, Set[str]] = {}
@@ -32,6 +37,8 @@ class MarkdownChecker:
         return broken_links
 
     def _find_md_files(self, directory: str) -> List[str]:
+        if not isinstance(directory, str):
+            raise TypeError(f"directory must be a string, got {type(directory).__name__}")
         md_files = []
         for root, _, files in os.walk(directory):
             for file in files:
@@ -40,12 +47,16 @@ class MarkdownChecker:
         return md_files
 
     def _generate_anchor(self, header_text: str) -> str:
+        if not isinstance(header_text, str):
+            raise TypeError(f"header_text must be a string, got {type(header_text).__name__}")
         header = header_text.strip().lower()
         header = re.sub(r'[^\w\s-]', '', header)
         header = re.sub(r'[-\s]+', '-', header)
         return header
 
     def _extract_anchors(self, filepath: str) -> Set[str]:
+        if not isinstance(filepath, str):
+            raise TypeError(f"filepath must be a string, got {type(filepath).__name__}")
         anchors = set()
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
@@ -60,11 +71,13 @@ class MarkdownChecker:
                 html_anchors = re.findall(r'<(?:a|div|span|h[1-6]).*?(?:name|id)=["\'](.*?)["\']', content)
                 for a in html_anchors:
                     anchors.add(a)
-        except Exception:
-            pass
+        except (OSError, UnicodeDecodeError) as e:
+            print(f"Warning: Could not read anchors from {filepath}: {e}", file=sys.stderr)
         return anchors
 
     def _extract_links(self, filepath: str) -> List[Tuple[str, str]]:
+        if not isinstance(filepath, str):
+            raise TypeError(f"filepath must be a string, got {type(filepath).__name__}")
         links = []
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
@@ -88,11 +101,15 @@ class MarkdownChecker:
                         continue
                         
                     links.append((text, url))
-        except Exception:
-            pass
+        except (OSError, UnicodeDecodeError) as e:
+            print(f"Warning: Could not read links from {filepath}: {e}", file=sys.stderr)
         return links
 
     def _verify_link(self, source_file: str, url: str) -> Tuple[bool, str]:
+        if not isinstance(source_file, str):
+            raise TypeError(f"source_file must be a string, got {type(source_file).__name__}")
+        if not isinstance(url, str):
+            raise TypeError(f"url must be a string, got {type(url).__name__}")
         target_path = url
         anchor = None
         if '#' in url:

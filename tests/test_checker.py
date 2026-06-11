@@ -155,6 +155,34 @@ class TestMarkdownChecker(unittest.TestCase):
         broken = checker.scan()
         
         self.assertEqual(len(broken), 0)
+        
+    def test_invalid_types_raise_errors(self):
+        with self.assertRaises(TypeError):
+            MarkdownChecker(123)
+            
+        checker = MarkdownChecker(self.root)
+        
+        with self.assertRaises(TypeError):
+            checker._find_md_files(123)
+            
+        with self.assertRaises(TypeError):
+            checker._generate_anchor(None)
+            
+        with self.assertRaises(TypeError):
+            checker._extract_anchors(456)
+            
+        with self.assertRaises(TypeError):
+            checker._extract_links(["not a string"])
+            
+        with self.assertRaises(TypeError):
+            checker._verify_link(123, "url")
+            
+        with self.assertRaises(TypeError):
+            checker._verify_link("source", 123)
+
+    def test_invalid_directory_raises_value_error(self):
+        with self.assertRaises(ValueError):
+            MarkdownChecker("nonexistent_directory_that_really_should_not_exist")
 
 if __name__ == '__main__':
     unittest.main()

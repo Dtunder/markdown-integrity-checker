@@ -22,12 +22,26 @@ class TestMain(unittest.TestCase):
             f.write(content)
 
     @patch('sys.argv', ['main.py', 'nonexistent_dir'])
-    @patch('sys.stdout', new_callable=io.StringIO)
-    def test_nonexistent_directory(self, mock_stdout):
+    @patch('sys.stderr', new_callable=io.StringIO)
+    def test_nonexistent_directory(self, mock_stderr):
         with self.assertRaises(SystemExit) as cm:
             main()
         self.assertEqual(cm.exception.code, 1)
-        self.assertTrue("Error: Directory 'nonexistent_dir' not found or is not a directory." in mock_stdout.getvalue())
+        self.assertTrue("Error: Directory 'nonexistent_dir' not found or is not a directory." in mock_stderr.getvalue())
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    @patch('sys.stderr', new_callable=io.StringIO)
+    @patch('main.MarkdownChecker')
+    def test_unexpected_runtime_error(self, mock_checker_class, mock_stderr, mock_stdout):
+        mock_checker_instance = MagicMock()
+        mock_checker_instance.scan.side_effect = Exception("Test unexpected error")
+        mock_checker_class.return_value = mock_checker_instance
+        
+        with patch('sys.argv', ['main.py', self.root]):
+            with self.assertRaises(SystemExit) as cm:
+                main()
+            self.assertEqual(cm.exception.code, 1)
+            self.assertTrue("Unexpected Runtime Error during scan: Test unexpected error" in mock_stderr.getvalue())
 
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_valid_directory_no_broken_links(self, mock_stdout):

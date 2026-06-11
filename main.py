@@ -10,13 +10,25 @@ def main():
     args = parser.parse_args()
     
     scan_dir = args.directory
+    if not isinstance(scan_dir, str):
+        print(f"Error: Invalid directory path type.", file=sys.stderr)
+        sys.exit(1)
+        
     if not os.path.isdir(scan_dir):
-        print(f"Error: Directory '{scan_dir}' not found or is not a directory.")
+        print(f"Error: Directory '{scan_dir}' not found or is not a directory.", file=sys.stderr)
         sys.exit(1)
         
     print(f"Scanning directory: {os.path.abspath(scan_dir)}")
-    checker = MarkdownChecker(scan_dir)
-    broken_links = checker.scan()
+    
+    try:
+        checker = MarkdownChecker(scan_dir)
+        broken_links = checker.scan()
+    except (TypeError, ValueError) as e:
+        print(f"Configuration Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Unexpected Runtime Error during scan: {e}", file=sys.stderr)
+        sys.exit(1)
     
     if not broken_links:
         print("\nAll internal links are valid. Great job!")
