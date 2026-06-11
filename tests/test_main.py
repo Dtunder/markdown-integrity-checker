@@ -5,11 +5,11 @@ Unit tests for the CLI entry point (`main.py`).
 import unittest
 from unittest.mock import patch, MagicMock
 import os
-import sys
 import tempfile
 import io
 
 from main import main
+
 
 class TestMain(unittest.TestCase):
     """
@@ -22,10 +22,10 @@ class TestMain(unittest.TestCase):
         """Sets up a temporary directory for test files."""
         self.temp_dir = tempfile.TemporaryDirectory()
         self.root = self.temp_dir.name
-        
+
     def tearDown(self):
         self.temp_dir.cleanup()
-        
+
     def write_file(self, path: str, content: str):
         """
         Helper method to create a test file with given content.
@@ -56,7 +56,7 @@ class TestMain(unittest.TestCase):
         mock_checker_instance = MagicMock()
         mock_checker_instance.scan.side_effect = Exception("Test unexpected error")
         mock_checker_class.return_value = mock_checker_instance
-        
+
         with patch('sys.argv', ['main.py', self.root]):
             with self.assertRaises(SystemExit) as cm:
                 main()
@@ -68,7 +68,7 @@ class TestMain(unittest.TestCase):
         """Tests that scanning a valid directory with no broken links exits with code 0."""
         self.write_file('a.md', '# A\n[B](b.md)')
         self.write_file('b.md', '# B')
-        
+
         with patch('sys.argv', ['main.py', self.root]):
             with self.assertRaises(SystemExit) as cm:
                 main()
@@ -79,7 +79,7 @@ class TestMain(unittest.TestCase):
     def test_valid_directory_broken_links(self, mock_stdout):
         """Tests that scanning a valid directory with broken links exits with code 1."""
         self.write_file('a.md', '# A\n[Missing](missing.md)')
-        
+
         with patch('sys.argv', ['main.py', self.root]):
             with self.assertRaises(SystemExit) as cm:
                 main()
@@ -95,12 +95,13 @@ class TestMain(unittest.TestCase):
         mock_checker_instance = MagicMock()
         mock_checker_instance.scan.return_value = []
         mock_checker_class.return_value = mock_checker_instance
-        
+
         with patch('sys.argv', ['main.py']):
             with self.assertRaises(SystemExit) as cm:
                 main()
             self.assertEqual(cm.exception.code, 0)
             mock_checker_class.assert_called_with('.')
+
 
 if __name__ == '__main__':
     unittest.main()

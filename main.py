@@ -48,7 +48,13 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(
         description="Markdown Integrity Checker: Scans for broken internal links in markdown files.")
-    parser.add_argument('directory', nargs='?', default=APP_CONFIG.get("DEFAULT_SCAN_DIRECTORY", "."), help="Directory to scan (default: configured directory)")
+    parser.add_argument(
+        'directory',
+        nargs='?',
+        default=APP_CONFIG.get(
+            "DEFAULT_SCAN_DIRECTORY",
+            "."),
+        help="Directory to scan (default: configured directory)")
 
     args = parser.parse_args()
 

@@ -13,6 +13,7 @@ DEFAULT_CONFIG = {
     "MARKDOWN_READ_RETRY_DELAY": 0.1
 }
 
+
 def load_config() -> Dict[str, Any]:
     """
     Loads configuration values from config.json (if it exists) and environment variables.
@@ -51,6 +52,7 @@ def load_config() -> Dict[str, Any]:
                 config[key] = env_val
 
     return config
+
 
 # Global configuration instance
 APP_CONFIG = load_config()
