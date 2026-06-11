@@ -2,14 +2,15 @@ import time
 import logging
 from functools import wraps
 from typing import Callable, Any, Type, Tuple, Optional
+from config import APP_CONFIG
 
 logger = logging.getLogger(__name__)
 
 def retry(
     exceptions: Tuple[Type[Exception], ...] = (Exception,),
-    tries: int = 3,
-    delay: float = 1.0,
-    backoff: float = 2.0,
+    tries: int = APP_CONFIG["RETRY_TRIES"],
+    delay: float = APP_CONFIG["RETRY_DELAY"],
+    backoff: float = APP_CONFIG["RETRY_BACKOFF"],
 ) -> Callable:
     """
     Retry calling the decorated function using an exponential backoff.

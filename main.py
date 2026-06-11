@@ -3,6 +3,7 @@ import sys
 import os
 import logging
 from markdown_checker import MarkdownChecker
+from config import APP_CONFIG
 
 
 def setup_logging() -> None:
@@ -10,11 +11,11 @@ def setup_logging() -> None:
     Configures structured logging for the application.
 
     Sets up the Python built-in `logging` module to output logs to standard output.
-    The verbosity level is determined by the `LOG_LEVEL` environment variable.
-    If the variable is not set or contains an invalid level, it defaults to `INFO`.
+    The verbosity level is determined by the `LOG_LEVEL` configuration value.
+    If the value contains an invalid level, it defaults to `INFO`.
     Logs are formatted to include the timestamp, logger name, severity level, and message.
     """
-    log_level_str = os.environ.get("LOG_LEVEL", "INFO").upper()
+    log_level_str = str(APP_CONFIG.get("LOG_LEVEL", "INFO")).upper()
     log_level = getattr(logging, log_level_str, logging.INFO)
 
     logging.basicConfig(
@@ -47,7 +48,7 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(
         description="Markdown Integrity Checker: Scans for broken internal links in markdown files.")
-    parser.add_argument('directory', nargs='?', default='.', help="Directory to scan (default: current directory)")
+    parser.add_argument('directory', nargs='?', default=APP_CONFIG.get("DEFAULT_SCAN_DIRECTORY", "."), help="Directory to scan (default: configured directory)")
 
     args = parser.parse_args()
 
