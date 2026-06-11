@@ -6,6 +6,7 @@ import os
 import tempfile
 import unittest
 from markdown_checker import MarkdownChecker
+from unittest.mock import patch
 
 class TestMarkdownChecker(unittest.TestCase):
     """
@@ -219,6 +220,61 @@ class TestMarkdownChecker(unittest.TestCase):
         """Tests that a ValueError is raised if the root directory does not exist."""
         with self.assertRaises(ValueError):
             MarkdownChecker("nonexistent_directory_that_really_should_not_exist")
+
+
+    def test_file_read_fallback_triggered(self):
+        """Tests that a UnicodeDecodeError triggers the fallback to return empty string."""
+        self.write_file('a.md', '# A\n[B](b.md)')
+        
+        class FailingChecker(MarkdownChecker):
+            def _read_file_content(self, filepath: str) -> str:
+                raise UnicodeDecodeError('utf-8', b'', 0, 1, 'invalid start byte')
+                
+        # we still want the decorator applied to the override
+        from resilience import fallback
+        FailingChecker._read_file_content = fallback(fallback_func=MarkdownChecker._read_fallback, exceptions=(UnicodeDecodeError,))(FailingChecker._read_file_content)
+        
+        checker = FailingChecker(self.root)
+        checker._parse_file(os.path.join(self.root, 'a.md'))
+        self.assertEqual(len(checker.file_links_cache[os.path.join(self.root, 'a.md')]), 0)
+
+    @patch('time.sleep', return_value=None)
+    def test_file_read_retry_triggered(self, mock_sleep):
+        """Tests that OSError correctly retries and ultimately fails."""
+        self.write_file('a.md', '# A\n[B](b.md)')
+        checker = MarkdownChecker(self.root)
+        
+        os.chmod(os.path.join(self.root, 'a.md'), 0o000)
+        try:
+            broken = checker.scan()
+            self.assertEqual(len(broken), 0)
+        finally:
+            os.chmod(os.path.join(self.root, 'a.md'), 0o644)
+            
+    @patch('time.sleep', return_value=None)
+    def test_file_read_retry_success(self, mock_sleep):
+        """Tests that retry success works."""
+        self.write_file('a.md', '# A\n[B](b.md)')
+        
+        class RetrySuccessChecker(MarkdownChecker):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.calls = 0
+            
+            def _read_file_content(self, filepath: str) -> str:
+                self.calls += 1
+                if self.calls == 1:
+                    raise OSError('error 1')
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    return f.read()
+
+        from resilience import retry, fallback
+        RetrySuccessChecker._read_file_content = retry(exceptions=(OSError,), tries=3, delay=0.1)(RetrySuccessChecker._read_file_content)
+        
+        checker = RetrySuccessChecker(self.root)
+        checker._parse_file(os.path.join(self.root, 'a.md'))
+        self.assertEqual(len(checker.file_links_cache[os.path.join(self.root, 'a.md')]), 1)
+        self.assertEqual(checker.calls, 2)
 
 if __name__ == '__main__':
     unittest.main()

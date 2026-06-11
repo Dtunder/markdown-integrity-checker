@@ -3,6 +3,7 @@ import re
 import sys
 import logging
 from typing import List, Tuple, Dict, Set
+from resilience import retry, fallback
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +141,20 @@ class MarkdownChecker:
         header = RE_DASH_SPACES.sub('-', header)
         return header
 
+    def _read_fallback(self, filepath: str) -> str:
+        logger.warning(f"Fallback triggered for reading {filepath}. Returning empty content.")
+        print(f"Warning: Could not read file {filepath}: Fallback triggered", file=sys.stderr)
+        return ""
+
+    @fallback(fallback_func=_read_fallback, exceptions=(UnicodeDecodeError,))
+    @retry(exceptions=(OSError,), tries=3, delay=0.1)
+    def _read_file_content(self, filepath: str) -> str:
+        """
+        Reads the file content. Subject to retry for OSError and fallback for UnicodeDecodeError.
+        """
+        with open(filepath, 'r', encoding='utf-8') as f:
+            return f.read()
+
     def _parse_file(self, filepath: str) -> None:
         """
         Parses a markdown file to extract its anchors and internal links, and caches them.
@@ -163,38 +178,37 @@ class MarkdownChecker:
         anchors = set()
         links = []
         try:
-            with open(filepath, 'r', encoding='utf-8') as f:
-                content = f.read()
-                # Remove code blocks and inline code to prevent false positives
-                content_no_code = RE_CODE_BLOCK.sub('', content)
-                content_no_code = RE_INLINE_CODE.sub('', content_no_code)
+            content = self._read_file_content(filepath)
+            # Remove code blocks and inline code to prevent false positives
+            content_no_code = RE_CODE_BLOCK.sub('', content)
+            content_no_code = RE_INLINE_CODE.sub('', content_no_code)
 
-                # Extract headers for anchors
-                headers = RE_HEADER.findall(content_no_code)
-                for header in headers:
-                    anchors.add(self._generate_anchor(header))
+            # Extract headers for anchors
+            headers = RE_HEADER.findall(content_no_code)
+            for header in headers:
+                anchors.add(self._generate_anchor(header))
 
-                # Extract explicit HTML anchors
-                html_anchors = RE_HTML_ANCHOR.findall(content_no_code)
-                anchors.update(html_anchors)
+            # Extract explicit HTML anchors
+            html_anchors = RE_HTML_ANCHOR.findall(content_no_code)
+            anchors.update(html_anchors)
 
-                # Extract markdown links
-                raw_links = RE_LINK.findall(content_no_code)
+            # Extract markdown links
+            raw_links = RE_LINK.findall(content_no_code)
 
-                for text, url_title in raw_links:
-                    # Handle optional title in the url like `file.md "Title"`
-                    url_parts = url_title.strip().split(maxsplit=1)
-                    if not url_parts:
-                        continue
-                    url = url_parts[0]
-                    # Clean < > if present
-                    if url.startswith('<') and url.endswith('>'):
-                        url = url[1:-1]
+            for text, url_title in raw_links:
+                # Handle optional title in the url like `file.md "Title"`
+                url_parts = url_title.strip().split(maxsplit=1)
+                if not url_parts:
+                    continue
+                url = url_parts[0]
+                # Clean < > if present
+                if url.startswith('<') and url.endswith('>'):
+                    url = url[1:-1]
 
-                    if not url or RE_URL_SCHEME.match(url):
-                        continue
+                if not url or RE_URL_SCHEME.match(url):
+                    continue
 
-                    links.append((text, url))
+                links.append((text, url))
         except (OSError, UnicodeDecodeError) as e:
             logger.warning(f"Could not parse file {filepath}: {e}", exc_info=True)
             # We want to use the same print warning format to preserve backward compatibility
