@@ -5,7 +5,14 @@ import logging
 from markdown_checker import MarkdownChecker
 
 def setup_logging():
-    """Configures structured logging for the application."""
+    """
+    Configures structured logging for the application.
+
+    Sets up the Python built-in `logging` module to output logs to standard output.
+    The verbosity level is determined by the `LOG_LEVEL` environment variable.
+    If the variable is not set or contains an invalid level, it defaults to `INFO`.
+    Logs are formatted to include the timestamp, logger name, severity level, and message.
+    """
     log_level_str = os.environ.get("LOG_LEVEL", "INFO").upper()
     log_level = getattr(logging, log_level_str, logging.INFO)
     
@@ -18,7 +25,20 @@ def setup_logging():
 def main():
     """
     Entry point for the markdown-integrity-checker CLI tool.
-    Parses arguments, initializes the MarkdownChecker, and outputs broken links if any.
+
+    This function is responsible for:
+    1. Initializing the application logging setup.
+    2. Parsing command-line arguments to retrieve the target directory to scan.
+    3. Validating the provided directory path.
+    4. Initializing the `MarkdownChecker` with the given directory.
+    5. Executing the scan and collecting the list of broken internal links.
+    6. Outputting the results to the standard output and exiting with the
+       appropriate status code (0 if all links are valid, 1 otherwise).
+
+    Raises:
+        SystemExit: Exits with code 1 if directory validation fails, 
+                    if a configuration/runtime error occurs, or if broken links are found.
+                    Exits with code 0 if the scan succeeds and no broken links are found.
     """
     setup_logging()
     logger = logging.getLogger(__name__)

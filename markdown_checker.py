@@ -17,9 +17,32 @@ RE_DASH_SPACES = re.compile(r'[-\s]+')
 RE_URL_SCHEME = re.compile(r'^[a-zA-Z][a-zA-Z0-9+.-]*:')
 
 class MarkdownChecker:
-    """A tool to scan a directory for markdown files and verify internal links."""
+    """
+    A tool to scan a directory for markdown files and verify internal links.
+
+    This class provides functionality to recursively traverse a given directory,
+    parse all markdown files, extract internal relative links (including anchors),
+    and verify that the target files and specific sections/anchors exist within
+    the directory structure.
+
+    Attributes:
+        root_dir (str): The absolute path to the root directory to be scanned.
+        md_files (List[str]): A list of absolute paths to all discovered markdown files.
+        file_anchors_cache (Dict[str, Set[str]]): A cache mapping file paths to their generated anchor IDs.
+        file_links_cache (Dict[str, List[Tuple[str, str]]]): A cache mapping file paths to lists of extracted links.
+    """
 
     def __init__(self, root_dir: str):
+        """
+        Initializes the MarkdownChecker with the specified root directory.
+
+        Args:
+            root_dir (str): The path to the directory containing markdown files to scan.
+
+        Raises:
+            TypeError: If the provided `root_dir` is not a string.
+            ValueError: If the provided `root_dir` does not exist or is not a directory.
+        """
         if not isinstance(root_dir, str):
             raise TypeError(f"root_dir must be a string, got {type(root_dir).__name__}")
         if not os.path.isdir(root_dir):
@@ -33,7 +56,17 @@ class MarkdownChecker:
     def scan(self) -> List[Dict[str, str]]:
         """
         Scans the root directory for markdown files and verifies internal links.
-        Returns a list of dictionaries detailing broken links.
+
+        This is the primary method to execute the validation process. It finds all
+        markdown files, parses them to extract internal links, and verifies each link
+        against the cached files and anchors.
+
+        Returns:
+            List[Dict[str, str]]: A list of dictionaries detailing broken links. Each dictionary contains:
+                - 'source' (str): The absolute path of the file containing the broken link.
+                - 'text' (str): The display text of the broken link.
+                - 'url' (str): The target URL of the broken link.
+                - 'reason' (str): A description of why the link is considered broken.
         """
         logger.info(f"Scanning directory {self.root_dir} for markdown files.")
         self.md_files = self._find_md_files(self.root_dir)
@@ -61,7 +94,18 @@ class MarkdownChecker:
         return broken_links
 
     def _find_md_files(self, directory: str) -> List[str]:
-        """Recursively finds all markdown files in the given directory."""
+        """
+        Recursively finds all markdown files within a specified directory.
+
+        Args:
+            directory (str): The root directory path to start the recursive search.
+
+        Returns:
+            List[str]: A list of absolute file paths to all discovered markdown files (ending with '.md').
+
+        Raises:
+            TypeError: If the `directory` argument is not a string.
+        """
         if not isinstance(directory, str):
             raise TypeError(f"directory must be a string, got {type(directory).__name__}")
         md_files = []
@@ -72,7 +116,22 @@ class MarkdownChecker:
         return md_files
 
     def _generate_anchor(self, header_text: str) -> str:
-        """Converts a markdown header text into an HTML anchor ID."""
+        """
+        Converts a markdown header text into an HTML anchor ID.
+
+        Simulates how standard markdown renderers generate anchor links from headers.
+        Converts the text to lowercase, removes non-word characters (excluding dashes),
+        and replaces spaces with dashes.
+
+        Args:
+            header_text (str): The raw text of the markdown header.
+
+        Returns:
+            str: The generated HTML anchor ID string.
+
+        Raises:
+            TypeError: If `header_text` is not a string.
+        """
         if not isinstance(header_text, str):
             raise TypeError(f"header_text must be a string, got {type(header_text).__name__}")
         header = header_text.strip().lower()
@@ -81,7 +140,19 @@ class MarkdownChecker:
         return header
 
     def _parse_file(self, filepath: str) -> None:
-        """Parses a markdown file to extract its anchors and internal links, and caches them."""
+        """
+        Parses a markdown file to extract its anchors and internal links, and caches them.
+
+        Reads the content of the file, strips out code blocks to avoid false positives,
+        extracts all headers (to generate anchors), explicit HTML anchors, and markdown links.
+        Results are stored in `self.file_anchors_cache` and `self.file_links_cache`.
+
+        Args:
+            filepath (str): The absolute path to the markdown file to be parsed.
+
+        Raises:
+            TypeError: If the `filepath` argument is not a string.
+        """
         if filepath in self.file_anchors_cache:
             return  # Already parsed
             
@@ -134,17 +205,58 @@ class MarkdownChecker:
         self.file_links_cache[filepath] = links
 
     def _extract_anchors(self, filepath: str) -> Set[str]:
-        """Legacy helper maintained for test compatibility if any tests mock this."""
+        """
+        Extracts anchors from a given markdown file.
+
+        This is a legacy helper method maintained primarily for test compatibility
+        if any existing tests mock this specific function. It relies on `_parse_file`.
+
+        Args:
+            filepath (str): The absolute path to the markdown file.
+
+        Returns:
+            Set[str]: A set of anchor IDs found in the file. Returns an empty set if parsing fails or none are found.
+        """
         self._parse_file(filepath)
         return self.file_anchors_cache.get(filepath, set())
 
     def _extract_links(self, filepath: str) -> List[Tuple[str, str]]:
-        """Legacy helper maintained for test compatibility if any tests mock this."""
+        """
+        Extracts internal links from a given markdown file.
+
+        This is a legacy helper method maintained primarily for test compatibility
+        if any existing tests mock this specific function. It relies on `_parse_file`.
+
+        Args:
+            filepath (str): The absolute path to the markdown file.
+
+        Returns:
+            List[Tuple[str, str]]: A list of tuples, where each tuple contains (link_text, url).
+                                   Returns an empty list if parsing fails or no links are found.
+        """
         self._parse_file(filepath)
         return self.file_links_cache.get(filepath, [])
 
     def _verify_link(self, source_file: str, url: str) -> Tuple[bool, str]:
-        """Verifies if an internal link resolves to an existing file/anchor."""
+        """
+        Verifies if an internal link resolves to an existing file and/or anchor.
+
+        Resolves the relative target URL against the source file's directory. Checks
+        if the target file exists on the filesystem and, if an anchor is provided,
+        parses the target file to ensure the anchor exists within it.
+
+        Args:
+            source_file (str): The absolute path of the file containing the link.
+            url (str): The target URL of the link to verify (may include an anchor `#`).
+
+        Returns:
+            Tuple[bool, str]: A tuple where the first element is a boolean indicating
+                              if the link is valid (True) or broken (False). The second
+                              element is a string detailing the reason if the link is broken.
+
+        Raises:
+            TypeError: If `source_file` or `url` are not strings.
+        """
         if not isinstance(source_file, str):
             raise TypeError(f"source_file must be a string, got {type(source_file).__name__}")
         if not isinstance(url, str):
