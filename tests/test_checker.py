@@ -69,5 +69,92 @@ class TestMarkdownChecker(unittest.TestCase):
         self.assertEqual(len(broken), 1)
         self.assertEqual(broken[0]['url'], 'c.md')
 
+    def test_html_anchors(self):
+        self.write_file('a.md', '# A\n<a name="html-anchor"></a>\n[HTML Anchor](#html-anchor)')
+        checker = MarkdownChecker(self.root)
+        broken = checker.scan()
+        self.assertEqual(len(broken), 0)
+
+    def test_extract_anchors_exception(self):
+        self.write_file('a.md', '# A')
+        checker = MarkdownChecker(self.root)
+        os.chmod(os.path.join(self.root, 'a.md'), 0o000)
+        try:
+            anchors = checker._extract_anchors(os.path.join(self.root, 'a.md'))
+            self.assertEqual(len(anchors), 0)
+        finally:
+            os.chmod(os.path.join(self.root, 'a.md'), 0o644)
+
+    def test_extract_links_exception(self):
+        self.write_file('a.md', '# A\n[B](b.md)')
+        checker = MarkdownChecker(self.root)
+        os.chmod(os.path.join(self.root, 'a.md'), 0o000)
+        try:
+            links = checker._extract_links(os.path.join(self.root, 'a.md'))
+            self.assertEqual(len(links), 0)
+        finally:
+            os.chmod(os.path.join(self.root, 'a.md'), 0o644)
+
+    def test_empty_url_parts(self):
+        self.write_file('a.md', '# A\n[Empty]()')
+        checker = MarkdownChecker(self.root)
+        broken = checker.scan()
+        self.assertEqual(len(broken), 0)
+
+    def test_url_with_angle_brackets(self):
+        self.write_file('a.md', '# A\n[B](<b.md>)')
+        self.write_file('b.md', '# B')
+        checker = MarkdownChecker(self.root)
+        broken = checker.scan()
+        self.assertEqual(len(broken), 0)
+
+    def test_absolute_path_link(self):
+        self.write_file('a.md', '# A\n[B](/b.md)')
+        self.write_file('b.md', '# B')
+        checker = MarkdownChecker(self.root)
+        broken = checker.scan()
+        self.assertEqual(len(broken), 0)
+
+    def test_target_is_directory(self):
+        self.write_file('a.md', '# A\n[Dir](subdir)')
+        os.makedirs(os.path.join(self.root, 'subdir'), exist_ok=True)
+        checker = MarkdownChecker(self.root)
+        broken = checker.scan()
+        self.assertEqual(len(broken), 1)
+        self.assertTrue('Target is not a file' in broken[0]['reason'])
+
+    def test_anchor_in_cache_miss(self):
+        self.write_file('a.md', '# A\n[B missing anchor](b.md#missing)')
+        self.write_file('b.md', '# B')
+        checker = MarkdownChecker(self.root)
+
+        # force cache miss logic
+        checker.file_anchors_cache = {}
+
+        # this will try to verify the link by reading b.md's anchors manually since it's not in cache
+        broken = checker.scan()
+
+        self.assertEqual(len(broken), 1)
+        self.assertTrue('Anchor not found' in broken[0]['reason'])
+
+
+    def test_whitespace_only_url(self):
+        self.write_file('a.md', '# A\n[Empty](   )')
+        checker = MarkdownChecker(self.root)
+        broken = checker.scan()
+        self.assertEqual(len(broken), 0)
+
+    def test_anchor_in_cache_miss_valid(self):
+        self.write_file('a.md', '# A\n[B anchor](b.md#valid)')
+        self.write_file('b.md', '# B\n## Valid')
+        checker = MarkdownChecker(self.root)
+
+        # force cache miss logic
+        checker.file_anchors_cache = {}
+
+        broken = checker.scan()
+
+        self.assertEqual(len(broken), 0)
+
 if __name__ == '__main__':
     unittest.main()
