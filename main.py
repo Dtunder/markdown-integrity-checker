@@ -4,6 +4,10 @@ import os
 from markdown_checker import MarkdownChecker
 
 def main():
+    """
+    Entry point for the markdown-integrity-checker CLI tool.
+    Parses arguments, initializes the MarkdownChecker, and outputs broken links if any.
+    """
     parser = argparse.ArgumentParser(description="Markdown Integrity Checker: Scans for broken internal links in markdown files.")
     parser.add_argument('directory', nargs='?', default='.', help="Directory to scan (default: current directory)")
     
