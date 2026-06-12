@@ -1,10 +1,11 @@
 import time
 import logging
 from functools import wraps
-from typing import Callable, Any, Type, Tuple, Optional
+from typing import Callable, Any, Type, Tuple
 from config import APP_CONFIG
 
 logger = logging.getLogger(__name__)
+
 
 def retry(
     exceptions: Tuple[Type[Exception], ...] = (Exception,),
@@ -37,6 +38,7 @@ def retry(
             return f(*args, **kwargs)
         return f_retry
     return deco_retry
+
 
 def fallback(
     fallback_func: Callable,

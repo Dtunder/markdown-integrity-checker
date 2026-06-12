@@ -148,7 +148,8 @@ class MarkdownChecker:
         return ""
 
     @fallback(fallback_func=_read_fallback, exceptions=(UnicodeDecodeError,))
-    @retry(exceptions=(OSError,), tries=APP_CONFIG["MARKDOWN_READ_RETRY_TRIES"], delay=APP_CONFIG["MARKDOWN_READ_RETRY_DELAY"])
+    @retry(exceptions=(OSError,), tries=APP_CONFIG["MARKDOWN_READ_RETRY_TRIES"],
+           delay=APP_CONFIG["MARKDOWN_READ_RETRY_DELAY"])
     def _read_file_content(self, filepath: str) -> str:
         """
         Reads the file content. Subject to retry for OSError and fallback for UnicodeDecodeError.
