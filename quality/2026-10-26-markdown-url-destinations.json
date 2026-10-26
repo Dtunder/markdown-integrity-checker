@@ -1,0 +1,90 @@
+{
+  "run_id": "portfolio-quality-2026-10-26-1027",
+  "checked_at": "2026-10-26T10:32:30+01:00",
+  "repo": "Dtunder/markdown-integrity-checker",
+  "baseline_commit": "828bfbfa08b18e35d83fb812aefa2074c6cb7843",
+  "inspected_repos": [
+    "Dtunder/markdown-integrity-checker",
+    "Dtunder/bom-optimizer",
+    "Dtunder/rl-cartpole-custom"
+  ],
+  "open_prs_checked": [
+    1,
+    2
+  ],
+  "candidates": [
+    {
+      "name": "Percent-encoded filename spaces",
+      "status": "BEHOBEN"
+    },
+    {
+      "name": "Percent-encoded Unicode anchors",
+      "status": "BEHOBEN"
+    },
+    {
+      "name": "Angle-bracket destinations with spaces",
+      "status": "BEHOBEN"
+    },
+    {
+      "name": "Query suffix in local file links",
+      "status": "BEHOBEN"
+    },
+    {
+      "name": "Percent-encoded # in filenames",
+      "status": "BEHOBEN"
+    }
+  ],
+  "reproducer": {
+    "command": "python3 -m unittest discover -s tests -p test_url_destinations.py -q",
+    "tool": "Python 3.14.4, Ubuntu WSL, unprivileged nobody, ext4 temporary directory",
+    "before": {
+      "pass": 1,
+      "total": 6,
+      "exit_code": 1
+    },
+    "after": {
+      "pass": 6,
+      "total": 6,
+      "exit_code": 0
+    }
+  },
+  "patch_files": [
+    "markdown_checker.py",
+    "tests/test_url_destinations.py"
+  ],
+  "regression": {
+    "full_linux_before": {
+      "pass": 31,
+      "total": 31,
+      "exit_code": 0
+    },
+    "full_linux_after": {
+      "pass": 37,
+      "total": 37,
+      "exit_code": 0
+    },
+    "windows_before": {
+      "pass": 28,
+      "total": 31,
+      "exit_code": 1
+    },
+    "windows_after": {
+      "pass": 34,
+      "total": 37,
+      "exit_code": 1
+    },
+    "windows_known_preexisting_failures": 3,
+    "compileall_exit_code": 0,
+    "git_diff_check_exit_code": 0
+  },
+  "delta": {
+    "false_broken_link_cases_fixed": 5,
+    "new_functional_root_cause_groups_fixed": 1,
+    "new_verified_demos": 0,
+    "new_public_projects": 0
+  },
+  "security": "Synthetic test files only; no external dependencies, private data, or deployment.",
+  "cost": "No paid cloud/GPU resources.",
+  "website_changed": false,
+  "next": "Test duplicate-MPN MOQ tier aggregation in BOM optimizer; then independently execute a new engineering project."
+}
