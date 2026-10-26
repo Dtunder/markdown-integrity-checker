@@ -2,6 +2,7 @@ import os
 import re
 import sys
 import logging
+from urllib.parse import unquote, urlsplit
 from typing import List, Tuple, Dict, Set
 from resilience import retry, fallback
 from config import APP_CONFIG
@@ -199,13 +200,16 @@ class MarkdownChecker:
 
             for text, url_title in raw_links:
                 # Handle optional title in the url like `file.md "Title"`
-                url_parts = url_title.strip().split(maxsplit=1)
-                if not url_parts:
-                    continue
-                url = url_parts[0]
-                # Clean < > if present
-                if url.startswith('<') and url.endswith('>'):
-                    url = url[1:-1]
+                destination = url_title.strip()
+                if destination.startswith('<'):
+                    # CommonMark angle-bracket destinations may contain spaces.
+                    end = destination.find('>')
+                    if end < 0:
+                        continue
+                    url = destination[1:end]
+                else:
+                    # Unbracketed destinations may have an optional title.
+                    url = destination.split(maxsplit=1)[0] if destination else ''
 
                 if not url or RE_URL_SCHEME.match(url):
                     continue
@@ -279,10 +283,11 @@ class MarkdownChecker:
         if not isinstance(url, str):
             raise TypeError(f"url must be a string, got {type(url).__name__}")
 
-        target_path = url
-        anchor = None
-        if '#' in url:
-            target_path, anchor = url.split('#', 1)
+        # Decode URL escapes only after separating the fragment: %23 can
+        # be part of a filename, whereas an unescaped # starts an anchor.
+        parsed = urlsplit(url)
+        target_path = unquote(parsed.path)
+        anchor = unquote(parsed.fragment) if parsed.fragment else None
 
         if not target_path:
             abs_target_path = source_file
